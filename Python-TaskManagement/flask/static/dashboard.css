@@ -1,0 +1,27 @@
+/* styles.css */
+
+  
+  h2 {
+    
+    text-align: center;
+    color: #333;
+    background-color: aquamarine;
+    height: 80px;
+    margin-top: 0%;
+    padding-top: 25px;
+    width: 100%;
+  }
+  
+  html {
+
+    position: relative;
+    min-height: 100%;
+}
+
+body {
+    /* Margin bottom by footer height */
+    margin-bottom: 2em;
+}
+
+
+
