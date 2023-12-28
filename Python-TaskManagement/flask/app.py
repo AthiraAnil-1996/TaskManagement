@@ -1,6 +1,7 @@
-from flask import Flask,render_template,request,redirect,url_for,flash
+from flask import Flask,render_template,request,redirect,url_for,flash,session
 import mysql.connector
 import secrets
+
 
 
 # create a flask application
@@ -18,27 +19,19 @@ def get_db_cursor():
   cursor = connection.cursor()
   return connection,cursor
 
-#class user:
-
-#cursor.execute("select username from login")
-#result = cursor.fetchall()
-
-
-#users = [row[0] for row in result]
-
-#cursor.close()
-#connection.close()
-# Define the route
 
 @app.route('/',methods =['GET', 'POST'])
 
 def hello():
    return render_template('main.html')
 
+
 @app.route('/main',methods =['GET', 'POST'])
 
 def main():
    return render_template('main.html')
+
+# -----------------------LOGIN----------------------------------------------
 
 @app.route('/login', methods =['GET', 'POST'])
 def login():
@@ -54,11 +47,17 @@ def login():
            user = cursor.fetchone()
 
            if user:
+               session['loggedin'] = True
+               session['id'] = user[0]
+               session['username'] = user[1]
+               print(session['id'])
                msg = 'Login Successful'
                return redirect(url_for('dashboard'))
            else:
                msg = 'Invalid username or password'
     return render_template('login.html',msg=msg)
+
+#----------------------------SIGN UP ----------------------------------------------------------
 
 @app.route('/signup', methods =['GET', 'POST'])
 def signup():
@@ -106,23 +105,26 @@ def signup():
                  
     return render_template('signup.html',msg=msg)
 
+#------------------------------ DASHBOARD -------------------------------------------
+
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     connection, cursor = get_db_cursor()
     cursor.execute("SELECT * FROM tasks")
     tasks = cursor.fetchall()
+
+    cursor.execute("SELECT status, COUNT(*) as count FROM tasks GROUP BY status")
+    status_counts = dict(cursor.fetchall())
+
+    task_count = len(tasks)
+
+
     cursor.close()
     connection.close()
 
-    return render_template('dashboard.html', tasks=tasks)
+    return render_template('dashboard.html', tasks=tasks, task_count=task_count,status_counts=status_counts)
 
-
-
-@app.route('/add_task', methods=['GET'])
-def add_task():
-    return render_template('addtask.html', form_title='Add New Task', form_action='/add_task', button_text='Add Task')
-
-
+#--------------------------------DELETE-------------------------------------------------
 
 @app.route('/delete_task/<int:task_id>')
 def delete_task(task_id):
@@ -135,82 +137,93 @@ def delete_task(task_id):
     flash('Task deleted successfully!', 'success')
     return redirect(url_for('dashboard'))
 
-#@app.route('/get_task/<int:task_id>', methods=['GET'])
-#def get_task(task_id):
-    
-        
-   #     connection, cursor = get_db_cursor()
-   #     sql_query = 'SELECT * FROM tasks WHERE id=%s'
-   #     cursor.execute(sql_query, (task_id,))
-    #    task = cursor.fetchone()
-   #     print('task',type(task))
 
-
-
-@app.route('/update_task/<int:task_id>', methods=['GET', 'POST'])
-def update_task(task_id):
+#-------------------------------UPDATE/SELECT-------------------------------------------------
+def get_task_data_by_id(task_id):
+    connection, cursor = get_db_cursor()
     try:
-        
-        connection, cursor = get_db_cursor()
-        sql_query = 'SELECT * FROM tasks WHERE id=%s'
-        cursor.execute(sql_query, (task_id,))
-        task = cursor.fetchone()
-        print('task',type(task))
+        query = "SELECT * FROM tasks WHERE id =%s"
+        data = (task_id,)
+        cursor.execute(query, data)
+        task_data = cursor.fetchone()
+        print(task_data)
 
-        if task:
-            if request.method == 'POST':
-                # Handle the form submission if POST method
-                title = request.form.get('title')
-                description = request.form.get('description')
-                duedate = request.form.get('duedate')
-                status = request.form.get('status')
-
-                sql_query_update = 'UPDATE tasks SET title=%s, description=%s, duedate=%s, status=%s WHERE id=%s'
-                cursor.execute(sql_query_update, (title, description, duedate, status, task_id))
-                connection.commit()
-
-                flash('Task updated successfully!', 'success')
-                return redirect(url_for('dashboard'))
-
-            return render_template('addtask.html', form_title='Update Task', form_action=f'/update_task/{task_id}',
-                                   button_text='Update Task', task=task)
+        if task_data:
+            task_dict = {
+                'Task_id':task_data[0],
+                'title': task_data[1],
+                'description': task_data[2],
+                'duedate': task_data[3],
+                'status': task_data[4]
+                
+            }
+            return task_dict
         else:
-            flash('Task not found', 'error')
-            return redirect(url_for('add_task'))
-    except mysql.connector.Error as err:
-        flash(f"Error: {err}", 'error')
-        return redirect(url_for('update_task',task_id=task_id))
-    finally:
-        cursor.close()
-        connection.close()
+            return None
+    except Exception as e:
+        print(f"Error in get_task_data_by_id: {e}")
+        return None
 
-@app.route('/add_task', methods=['POST'])
-def add_task_to_db():
-    try:
-        connection, cursor = get_db_cursor()
-        title = request.form.get('title')
-        description = request.form.get('description')
-        duedate = request.form.get('duedate')
-        status = request.form.get('status')
+@app.route('/add_task', methods=['GET', 'POST'])
+def add_task():
+    connection, cursor = get_db_cursor()
+    print("Inside AddTask route function")
+    form_data = None 
+    msg = '' 
+    action = 'create'
+    task_id = request.args.get('id')
+    if task_id:
+        form_data = get_task_data_by_id(task_id)
+        action = 'update'
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'create':
+            user_id = session.get('id')
+            title = request.form.get('title')
+            description = request.form.get('description')
+            due_date = request.form.get('dueDate')
+            status = request.form.get('status')
+            print(user_id)
+            
 
-        sql_query = 'INSERT INTO tasks (title, description, duedate, status) VALUES (%s, %s, %s, %s)'
-        values = (title, description, duedate, status)
+            query = "INSERT INTO tasks ( title, description, duedate, status, user_id) VALUES (%s, %s, %s, %s, %s)"
+            data = (title, description, due_date, status, user_id)
 
-        cursor.execute(sql_query, values)
-        connection.commit()
+            cursor.execute(query, data)
+            connection.commit()
 
-        flash('Task added successfully!', 'success')
-    except mysql.connector.Error as err:
-        flash(f"Error: {err}", 'error')
-    finally:
-        cursor.close()
-        connection.close()
+            msg = 'Task Created successfully!'
+            return redirect(url_for('dashboard'))
+        elif action == 'update':
+            
+            user_id = session.get('id')
+            title = request.form.get('title')
+            description = request.form.get('description')
+            due_date = request.form.get('dueDate')
+            status = request.form.get('status')
+            task_id = request.form.get('id')
+            print(task_id)
+           
 
-    return redirect(url_for('dashboard'))
+            query = "UPDATE tasks SET title=%s, description=%s, duedate=%s, status=%s WHERE id=%s"
+            data = (title, description, due_date, status, task_id)
 
+            cursor.execute(query, data)
+            connection.commit()
 
+            msg = 'Task Updated successfully!'
+            return redirect(url_for('dashboard'))
+    cursor.close()
+    connection.close()
 
+    return render_template('/addtask.html', form_data=form_data, msg=msg,action=action)
 
+#-------------------------------LOGOUT------------------------------------------------------
+
+@app.route('/logout',methods =['GET', 'POST'])
+
+def logout():
+   return render_template('login.html')
 
 
 # Run the flask app
