@@ -118,6 +118,33 @@ def dashboard():
 
     task_count = len(tasks)
 
+    if request.method == 'POST':
+        # If the filter form is submitted, apply filters
+        filter_title = request.form.get('filter_title', '')
+        filter_due_date = request.form.get('filter_due_date', '')
+        filter_status = request.form.get('filter_status', '')
+
+        # Build the SQL query based on the provided filters
+        query = "SELECT * FROM tasks WHERE 1"
+        params = []
+
+        if filter_title:
+            query += " AND title LIKE %s"
+            params.append(f"%{filter_title}%")
+
+        if filter_due_date:
+            query += " AND duedate = %s"
+            params.append(filter_due_date)
+
+        if filter_status:
+            query += " AND status = %s"
+            params.append(filter_status)
+
+        # Execute the filtered query
+        cursor.execute(query, tuple(params))
+        tasks = cursor.fetchall()
+
+
 
     cursor.close()
     connection.close()

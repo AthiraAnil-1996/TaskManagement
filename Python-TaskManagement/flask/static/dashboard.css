@@ -146,7 +146,20 @@ tr:nth-child(odd) {
 
 .add-task-link {
   text-align: right;
-  margin-top: 10px; /* Adjust the margin as needed */
+  margin-top: -35px; /* Adjust the margin as needed */
+}
+
+.sub_button{
+  display: inline-block;
+  padding: 10px 15px;
+  background-color: #04AA6D; /* Button background color */
+  color: #fff; /* Button text color */
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+  width:100px
+  
+
 }
 
 .add-task-link a {
@@ -194,7 +207,28 @@ tr:nth-child(odd) {
   
 }
 
+.filter-form {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #4f4d4d; /* Add border */
+  border-radius: 5px; /* Optional: Add border radius for rounded corners */
+  margin-top: 20px;
+}
 
+.filter-form label {
+  margin-right: 10px;
+}
 
+.filter-form input,
+.filter-form select {
+  margin-right: 10px;
+}
 
+.filter-form button {
+  cursor: pointer;
+}
 
+.lbltitle{
+  height: 25px;
+  width: 320px;
+}
